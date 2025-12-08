@@ -1,0 +1,41 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# 日志
+*.log
+logs/
+
+# 配置文件（包含敏感信息）
+application-prod.yml
+security-prod.yml
+**/application-prod.yml
+**/security-prod.yml
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时文件
+*.tmp
+*.temp
+*~
+*.swp
+
+# 编译输出
+*.class

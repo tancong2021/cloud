@@ -1,0 +1,9 @@
+server:
+  port: 1227
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://101.42.242.33:3306/cloud_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: tancong
+    password: tancong

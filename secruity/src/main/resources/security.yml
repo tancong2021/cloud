@@ -1,0 +1,12 @@
+
+spring:
+  security:
+    token:
+      header: Authorization
+      prefix: "Bearer "
+      secret-key: my-super-secret-key-12345678901234  # 必须从${JWT_SECRET_KEY}环境变量读取
+      expires-minutes: 30
+
+encrypt:
+  aes:
+    key: tancong629zyr218  # 必须从${AES_SECRET_KEY}环境变量读取
