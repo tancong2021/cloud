@@ -46,4 +46,17 @@
             <version>${hutool-all.version}</version> <!-- 或更高版本 -->
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 禁用 Spring Boot repackage（库模块不需要） -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
