@@ -170,6 +170,7 @@ CREATE TABLE `file` (
   `storage_bucket` VARCHAR(100) NOT NULL COMMENT 'COS存储桶名称',
   `user_id` BIGINT NOT NULL COMMENT '所属用户ID',
   `folder_id` BIGINT DEFAULT 0 COMMENT '所属文件夹ID（0表示根目录，预留字段）',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型：1-文件，2-文件夹', -- 【新增字段】
   `md5` VARCHAR(32) NOT NULL COMMENT '文件MD5值（用于秒传和去重）',
   `download_count` INT DEFAULT 0 COMMENT '下载次数',
   `status` TINYINT DEFAULT 1 COMMENT '文件状态：0-已删除，1-正常，2-待审核',

@@ -133,7 +133,12 @@ public class LocalCacheUtil implements CacheHandler {
     /**
      * 删除缓存
      */
-    public void delete(String key) {
-        if (key != null) CACHE.invalidate(key);
+    public boolean delete(String key) {
+
+        if (key != null) {
+            CACHE.invalidate(key);
+            return true;
+        }
+        return false;
     }
 }

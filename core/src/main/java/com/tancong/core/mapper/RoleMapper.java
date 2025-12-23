@@ -58,4 +58,10 @@ public interface RoleMapper extends BaseMapper<Role> {
 
     @Insert("INSERT INTO `role_menu`(`role_id`, `menu_id`) VALUES (#{roleId}, #{menuId})")
     int insertRoleMenu(Integer roleId, Integer menuId);
+
+    /**
+     * 更新角色
+     * @param roleDTO
+     */
+    void updateRole(RoleDTO roleDTO);
 }

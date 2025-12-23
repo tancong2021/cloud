@@ -43,7 +43,7 @@ public class EncryptService {
     @PostConstruct
     public void init() {
         if (aesKeyString == null || aesKeyString.length() != 16) {
-            throw new IllegalArgumentException("AES 密钥必须是 16 字节（128位）");
+            throw new IllegalArgumentException("AES 密钥必须是 16 字节");
         }
 
         // ✅ 将配置的字符串转为字节数组

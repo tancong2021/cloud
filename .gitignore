@@ -32,6 +32,9 @@ Thumbs.db
 desktop.ini
 
 # 临时文件
+nul
+*_nul
+*_null
 *.tmp
 *.temp
 *~

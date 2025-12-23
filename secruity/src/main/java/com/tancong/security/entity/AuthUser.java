@@ -23,6 +23,10 @@ public interface AuthUser extends UserDetails, Cloneable{
         return tokenType;
     }
 
+    /**
+     * 这个是UUID
+     * @return
+     */
     String getLoginId();
 
     void setExpireTime(Date expireTime);

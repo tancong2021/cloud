@@ -44,7 +44,7 @@ public class CacheManagers {
     }
 
     public static boolean set(String key, Object value) {
-        return set(key, value);
+        return handler.set(key, value);
     }
 
     /**
@@ -74,8 +74,8 @@ public class CacheManagers {
      * 删除对象
      * @param key
      */
-    public static void del(String key) {
-        handler.delete(key);
+    public static boolean del(String key) {
+        return handler.delete(key);
     }
     public static boolean put(String key, Map<String, Object> value, long exp) {
         return handler.put(key, value, exp);

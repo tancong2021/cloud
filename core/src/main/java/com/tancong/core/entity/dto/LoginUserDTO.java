@@ -1,5 +1,6 @@
 package com.tancong.core.entity.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +16,8 @@ import lombok.Setter;
  */
 @Data
 public class LoginUserDTO {
-
+    @NotBlank(message = "用户名不能为空")
     private String username;
+    @NotBlank(message = "密码不能为空")
     private String password;
 }

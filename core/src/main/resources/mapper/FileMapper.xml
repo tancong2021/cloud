@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tancong.core.mapper.FileMapper">
+
+    <select id="selectAllFilesRecursively" resultType="File">
+        WITH RECURSIVE folder_tree AS (
+            SELECT
+                id,
+                folder_id,
+                type
+            FROM `file`
+            WHERE folder_id = #{parentFolderId}
+              AND user_id = #{userId}
+              AND status = 1
+
+            UNION ALL
+
+            SELECT
+                f.id,
+                f.folder_id,
+                f.type
+            FROM `file` f
+                     INNER JOIN folder_tree ft ON f.folder_id = ft.id
+            WHERE f.user_id = #{userId}
+              AND f.status = 1
+        )
+        SELECT
+            f.* FROM `file` f
+                         INNER JOIN folder_tree ft ON f.id = ft.id
+        ORDER BY f.type DESC, f.file_name ASC;
+    </select>
+
+    <update id="softDeleteFileAndChildren">
+        WITH RECURSIVE delete_tree AS (
+        SELECT id FROM `file` WHERE id = #{id} AND user_id = #{userId}
+        UNION ALL
+        SELECT f.id
+        FROM `file` f
+        INNER JOIN delete_tree dt ON f.folder_id = dt.id
+        WHERE f.user_id = #{userId}
+        )
+        UPDATE `file`
+        SET
+        status = #{status},
+        update_time = #{updateTime}  <!-- ✅ 从 Java 传入 -->
+        WHERE id IN (SELECT id FROM delete_tree);
+    </update>
+
+    <!-- 递归查询文件夹下所有文件的存储路径 -->
+    <select id="selectFilePathsInFolder" resultType="java.lang.String">
+        WITH RECURSIVE file_tree AS (
+        SELECT id, storage_path, type
+        FROM `file`
+        WHERE id = #{folderId}
+        AND user_id = #{userId}
+
+        UNION ALL
+
+        SELECT f.id, f.storage_path, f.type
+        FROM `file` f
+        INNER JOIN file_tree ft ON f.folder_id = ft.id
+        WHERE f.user_id = #{userId}
+        )
+        SELECT storage_path
+        FROM file_tree
+        WHERE type = 1  <!-- 只返回文件类型 -->
+        AND storage_path IS NOT NULL
+        AND storage_path != ''
+    </select>
+
+    <!-- 递归物理删除（包括文件夹） -->
+    <delete id="permanentDeleteFileAndChildren">
+        WITH RECURSIVE delete_tree AS (
+            SELECT id
+            FROM `file`
+            WHERE id = #{fileId} AND user_id = #{userId}
+
+            UNION ALL
+
+            SELECT f.id
+            FROM `file` f
+                     INNER JOIN delete_tree dt ON f.folder_id = dt.id
+            WHERE f.user_id = #{userId}
+        )
+        DELETE FROM `file`
+        WHERE id IN (SELECT id FROM delete_tree)
+    </delete>
+
+</mapper>

@@ -25,5 +25,5 @@ public interface CacheHandler {
 
     Object get(String key, boolean updateExpire); // ✅查询对象，决定了：缓存是"固定过期"还是"滑动过期"
 
-    void delete(String key); // ✅从缓存中删除指定 key 对应的数据
+    boolean delete(String key); // ✅从缓存中删除指定 key 对应的数据
 }

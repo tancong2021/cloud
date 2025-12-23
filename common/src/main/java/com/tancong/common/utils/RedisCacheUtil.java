@@ -44,7 +44,7 @@ public class RedisCacheUtil implements CacheHandler {
      */
     @Override
     public boolean set(String key, Object value, long expireMillis) {
-        if (expireMillis == 0) redisTemplate.opsForValue().set(key, value);
+        if (expireMillis <= 0) redisTemplate.opsForValue().set(key, value);
         else redisTemplate.opsForValue().set(key, value, expireMillis, TimeUnit.MILLISECONDS);
         return true;
     }
@@ -91,7 +91,7 @@ public class RedisCacheUtil implements CacheHandler {
         Object value = redisTemplate.opsForValue().get(key);
         if (value != null && updateExpire) {
             // 将 TTL 刷新为默认值（秒）
-            redisTemplate.expire(key, DEFAULT_EXP_MILLIS, TimeUnit.MICROSECONDS);
+            redisTemplate.expire(key, DEFAULT_EXP_MILLIS, TimeUnit.MILLISECONDS);
         }
         return value;
     }
@@ -101,7 +101,7 @@ public class RedisCacheUtil implements CacheHandler {
      * @param key
      */
     @Override
-    public void delete(String key) {
-        redisTemplate.delete(key);
+    public boolean delete(String key) {
+       return redisTemplate.delete(key);
     }
 }

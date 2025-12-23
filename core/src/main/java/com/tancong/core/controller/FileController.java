@@ -12,8 +12,9 @@ import com.tancong.core.entity.vo.Pager;
 import com.tancong.core.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,7 @@ import java.util.List;
  * @create 2025/12/08
  */
 @Slf4j
-@API(path = "/api/files", name = "文件管理", description = "文件上传、下载、删除等接口")
+@API(path = "/files", name = "文件管理", description = "文件上传、下载、删除等接口")
 public class FileController {
 
     @Autowired
@@ -67,22 +68,94 @@ public class FileController {
     }
 
     /**
+     * 创建文件夹
+     */
+    @PostMapping("/folders")
+    @Operation(summary = "创建文件夹")
+    @LogRecord(value = "创建文件夹", module = "文件管理")
+    public RespBody<FileVO> createFolder(
+            @Parameter(description = "文件夹名称")
+            @RequestParam("folderName") String folderName,
+            @Parameter(description = "父文件夹ID（可选，默认根目录）")
+            @RequestParam(value = "parentFolderId", required = false) Long
+                    parentFolderId,
+            @AuthenticationPrincipal LoginUser loginUser
+    ) {
+        FileVO vo = fileService.createFolder(folderName, loginUser.getId(), parentFolderId);
+        return RespBody.success(vo);
+    }
+
+    /**
+     * 获取文件夹树形结构
+     */
+    @GetMapping("/folders/{id}/tree")
+    @Operation(summary = "获取文件夹树形结构")
+    public RespBody<List<FileVO>> getFolderTree(
+            @Parameter(description = "文件夹ID") @PathVariable("id") Long
+                    folderId,
+            @AuthenticationPrincipal LoginUser loginUser
+    ) {
+        List<FileVO> tree = fileService.getFileTree(folderId,
+                loginUser.getId());
+        return RespBody.success(tree);
+    }
+
+    /**
+     * 重命名文件或文件夹
+     */
+    @PutMapping("/{id}/rename")
+    @Operation(summary = "重命名文件或文件夹")
+    @LogRecord(value = "重命名", module = "文件管理")
+    public RespBody<Boolean> renameFile(
+            @Parameter(description = "文件/文件夹ID") @PathVariable("id")
+            Long fileId,
+            @Parameter(description = "新名称") @RequestParam("newName")
+            @Pattern(regexp = "^[^/\\\\:*?\"<>|]+$", message = "文件名包含非法字符")
+            String newName,
+            @AuthenticationPrincipal LoginUser loginUser
+    ) {
+        boolean result = fileService.renameFile(fileId, loginUser.getId(),newName);
+        if (result) {
+            return RespBody.success(true);
+        }
+        return RespBody.success(false);
+    }
+
+    /**
+     * 移动文件或文件夹
+     */
+    @PutMapping("/{id}/move")
+    @Operation(summary = "移动文件或文件夹")
+    @LogRecord(value = "移动", module = "文件管理")
+    public RespBody<Boolean> moveFile(
+            @Parameter(description = "文件/文件夹ID") @PathVariable("id")
+            Long fileId,
+            @Parameter(description = "目标文件夹ID")
+            @RequestParam("targetFolderId") Long targetFolderId,
+            @AuthenticationPrincipal LoginUser loginUser
+    ) {
+        boolean success = fileService.moveFile(fileId, targetFolderId,
+                loginUser.getId());
+        return RespBody.success(success);
+    }
+
+
+    /**
      * 获取文件列表（分页）
      */
-    @GetMapping
+    @GetMapping("/list")
     @Operation(summary = "获取文件列表")
-    public RespBody<Pager<File>> getFileList(
-        @Parameter(description = "文件夹ID（可选）") @RequestParam(value = "folderId", required = false) Long folderId,
-        @Parameter(description = "分页对象") Pager<File> pager,
-        @AuthenticationPrincipal LoginUser loginUser
+    public RespBody<Pager<FileVO>> getFileList(
+            @Parameter(description = "文件夹ID（可选）")
+            @RequestParam(value = "folderId", required = false) Long folderId,
+            Pager<FileVO> pager,
+            @AuthenticationPrincipal LoginUser loginUser
     ) {
-        QueryWrapper<File> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", loginUser.getId())
-               .eq("folder_id", folderId == null ? 0 : folderId)
-               .eq("status", 1)
-               .orderByDesc("create_time");
-
-        return RespBody.success(fileService.listOfPage(pager, wrapper));
+        // ✅ Controller 只负责调用 Service
+        Pager<FileVO> result = fileService.getUserFilesWithPage(
+                loginUser.getId(), folderId, pager
+        );
+        return RespBody.success(result);
     }
 
     /**
@@ -150,9 +223,7 @@ public class FileController {
         @Parameter(description = "文件ID列表") @RequestBody List<Long> fileIds,
         @AuthenticationPrincipal LoginUser loginUser
     ) {
-        for (Long fileId : fileIds) {
-            fileService.deleteFile(fileId, loginUser.getId());
-        }
-        return RespBody.success(true);
+        boolean success = fileService.batchDeleteFiles(fileIds, loginUser.getId());
+        return RespBody.success(success);
     }
 }

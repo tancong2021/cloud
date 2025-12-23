@@ -31,6 +31,10 @@ public class File extends BaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Integer type;
+
+    private String name;
+
     private String uuid;
 
     private String fileName;

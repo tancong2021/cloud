@@ -45,6 +45,7 @@ public class RespBody<T> implements Serializable {
     public static <T> RespBody<T> fail() { // 失败
         return new RespBody<>(RespStatus.FAIL.getCode(), RespStatus.FAIL.getMsg(), null);
     }
+
     public static <T> RespBody<T> fail(String msg) { // 自定义失败返回消息
         return new RespBody<>(RespStatus.FAIL.getCode(), msg, null);
     }

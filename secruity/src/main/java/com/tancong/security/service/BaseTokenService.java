@@ -59,7 +59,7 @@ public class BaseTokenService {
     private JWTVerifier verifier = null;
 
 
-    @Value("${spring.security.token.expires}")
+    @Value("${spring.security.token.expires-minutes:30}")
     public void setEXPIRES(int expiresMinutes) {
         this.expiresMillis = TimeUnit.MINUTES.toMillis(expiresMinutes);
     }
@@ -77,15 +77,14 @@ public class BaseTokenService {
         Date expireTime = new Date(System.currentTimeMillis() + expiresMillis);
         String token = JWT.create()
                 .withAudience(uuid)
-                .withClaim("TYPE", type.name()) // 都是往JWT载荷放一些声明：数据是map<key, value>
-                .withClaim(JWT_CLAIM_UUID, uuid) // "UUID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                .withClaim("TYPE", type.name())
+                .withClaim(JWT_CLAIM_UUID, uuid)
                 .withExpiresAt(expireTime)
                 .sign(Algorithm.HMAC256(SECRET_KEY));
         user.setExpireTime(expireTime);
         CacheManagers.set(uuid, user, user.expired());
         return token;
     }
-
 
     /**
      * 获取请求头中的 token
@@ -96,9 +95,43 @@ public class BaseTokenService {
     }
 
     /**
-     * 校验Token是否过期
+     * ✅ 新增：验证 Token 并返回用户信息（用于过滤器）
      */
-    public boolean verifyToken(String token) {
+    public AuthUser verifyToken(String token) {
+        if (StrUtil.isBlank(token)) {
+            return null;
+        }
+
+        try {
+            // 验证 Token 签名和过期时间
+            verifier.verify(token);
+
+            // 从缓存中获取用户信息
+            String uuid = getUUID(token);
+            AuthUser user = (AuthUser) CacheManagers.get(uuid);
+
+            if (user == null) {
+                log.warn("Token 验证失败：缓存中未找到用户信息, uuid={}", uuid);
+                return null;
+            }
+
+            return user;
+
+        } catch (TokenExpiredException e) {
+            String uuid = getUUID(token);
+            CacheManagers.del(uuid);
+            log.warn("Token 已过期, uuid={}", uuid);
+            return null;
+        } catch (Exception e) {
+            log.error("Token 验证异常: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 校验 Token 是否有效（只返回 boolean）
+     */
+    public boolean isTokenValid(String token) {
         if (StrUtil.isBlank(token)) {
             return false;
         }
@@ -133,9 +166,7 @@ public class BaseTokenService {
     public TokenType getType(String token) {
         try {
             String name = JWT.decode(token).getClaim("TYPE").asString();
-
             return TokenType.valueOf(name);
-
         } catch (JWTDecodeException e) {
             return null;
         }
@@ -143,8 +174,6 @@ public class BaseTokenService {
 
     /**
      * 从请求中获取UUID字符串
-     * @param request
-     * @return
      */
     public String getUUID(HttpServletRequest request) {
         try {
@@ -156,8 +185,6 @@ public class BaseTokenService {
 
     /**
      * 从Token中获取UUID字符串
-     * @param token
-     * @return
      */
     public String getUUID(String token) {
         try {
@@ -179,9 +206,7 @@ public class BaseTokenService {
      */
     public AuthUser getAuthUser(HttpServletRequest request) {
         String token = this.getToken(request);
-        // 获取token中的uuid
         if (StrUtil.isBlank(token)) {
-            // throw new NullPointerException("Token为空");
             return null;
         }
         return (AuthUser) CacheManagers.get(this.getUUID(token));

@@ -38,8 +38,7 @@ public class CosServiceImpl implements CosService {
 
     @Override
     public String uploadFile(MultipartFile file, String objectKey) {
-        try {
-            InputStream inputStream = file.getInputStream();
+        try (InputStream inputStream = file.getInputStream()) {
             return uploadFile(inputStream, objectKey, file.getSize(), file.getContentType());
         } catch (Exception e) {
             log.error("COS文件上传失败: {}", e.getMessage(), e);

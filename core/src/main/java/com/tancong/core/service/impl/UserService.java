@@ -59,19 +59,10 @@ public class UserService extends ServiceImpl<UserMapper, User> implements BaseSe
     }
 
     /**
-     * 加载游客用户
+     * 加密密码
+     * @param rawPassword
+     * @return
      */
-    public LoginUser loadGuestUser() {
-        UserDTO guestDTO = userMapper.selectByUsername("guest");
-        if (guestDTO == null || guestDTO.getStatus() != StatusEnum.ENABLED) {
-            return null;
-        }
-        LoginUser loginUser = new LoginUser();
-        BeanUtils.copyProperties(guestDTO, loginUser);
-        return loginUser;
-    }
-
-
     public String encodePassword(String rawPassword) {
         if (StrUtil.isBlank(rawPassword)) {
             throw new IllegalArgumentException("密码不能为空");

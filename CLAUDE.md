@@ -4,24 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a cloud storage backend management system (网盘后台管理系统) built with Spring Boot 3.4.12 and Java 17. It's a multi-module Maven project with three core modules:
+This is a Spring Boot 3.4.12 cloud file management system with JWT authentication, RBAC authorization, and Tencent Cloud COS integration. The project uses a multi-module Maven architecture with three core modules: `common` (shared utilities), `core` (main application), and `secruity` (security framework - note the typo in module name).
 
-- **common**: Shared utilities, annotations, caching, and exception handling
-- **core**: Main application module with business logic, controllers, entities, and services
-- **secruity** (note: typo in module name): Security configurations, JWT authentication, and encryption/decryption services
+**Key Technologies**: Spring Boot 3, Spring Security, MyBatis-Plus, MySQL 8.0, Redis, Caffeine Cache, Tencent Cloud COS, Java-JWT 4.4.0
 
-## Build & Run Commands
+## Build and Run Commands
 
 ### Build the project
 ```bash
 mvn clean install
 ```
 
-### Run the application
+### Run the application (from core module)
 ```bash
-# From the core module
 cd core
 mvn spring-boot:run
+```
+
+Or run the packaged JAR:
+```bash
+java -jar core/target/core-0.0.1-SNAPSHOT.jar
 ```
 
 ### Run tests
@@ -29,137 +31,205 @@ mvn spring-boot:run
 mvn test
 ```
 
-### Build specific module
+### Run single test class
 ```bash
-mvn clean install -pl common
-mvn clean install -pl core
-mvn clean install -pl secruity
+mvn test -Dtest=YourTestClassName
 ```
 
-### Skip tests during build
+### Database initialization
 ```bash
-mvn clean install -DskipTests
+cd sql
+init_database.bat  # Windows only
 ```
 
-## Architecture
+Or manually execute SQL files in order: 01-06 table creation scripts, then `init_data.sql`
 
-### Module Dependencies
-- **core** depends on both **common** and **secruity**
-- **secruity** depends on **common**
-- **common** is standalone with no internal dependencies
+## Architecture and Code Structure
 
-### Technology Stack
-- Spring Boot 3.4.12 (Web, Validation, Security, Data Redis, AOP)
-- MyBatis Plus 3.5.7 for ORM
-- MySQL 8.0.33
-- JWT (java-jwt 4.4.0) for authentication
-- Redis for distributed caching (with Caffeine 3.1.8 as local fallback)
-- Hutool 5.8.20 for utilities
-- Swagger/OpenAPI 2.2.22 for API documentation
-- Lombok 1.18.36
+### Multi-Module Organization
 
-### Package Structure
-```
-com.tancong.core/
-├── aspect/         # AOP aspects (logging)
-├── config/         # Configuration classes (Jackson, WebMvc)
-├── controller/     # REST controllers
-├── entity/         # Domain entities, DTOs, VOs, enums
-│   ├── dto/
-│   ├── vo/
-│   └── enums/
-├── mapper/         # MyBatis Plus mappers
-├── service/        # Service interfaces and implementations
-│   └── impl/
-└── utils/          # Utility classes
+- **common**: Shared library (NO Spring Boot packaging)
+  - Base entities, exceptions, annotations
+  - Cache managers (hybrid Redis/Caffeine)
+  - Utility classes (RedisCacheUtil, etc.)
 
-com.tancong.security/
-├── annotation/     # @Encrypt, @Decrypt
-├── aspect/         # Encryption/Decryption AOP
-├── config/         # Security configuration, CORS
-├── entity/         # AuthUser, ShareUser, TokenType
-├── handler/        # Authentication handlers, method argument resolvers
-├── service/        # BaseTokenService, EncryptService
-└── utils/          # DefaultSecurityUtils
+- **core**: Main executable Spring Boot application (port 1227)
+  - Controllers, Services, Mappers
+  - Business logic for file management and authentication
+  - Application entry point: `com.tancong.core.Application`
 
-com.tancong.common/
-├── annotation/     # @API, @LogRecord, @YAdmin
-├── entity/         # Log, RespBody, enums
-├── exception/      # CanShowException, SQLOperateException
-├── service/        # LoggerService interface
-└── utils/          # CacheManagers, LocalCacheUtil, RedisCacheUtil, ServletUtils
-```
+- **secruity** (note typo): Security library
+  - JWT token service and filters
+  - Spring Security configuration
+  - Authentication handlers (401/403)
 
-## Key Architectural Patterns
+### Authentication Flow
 
-### Custom Annotations
-- **@API**: Meta-annotation combining @RestController, @RequestMapping, and Swagger @Tag for REST controllers
-- **@YAdmin**: Similar to @API but for admin console controllers, uses @Controller instead
-- **@LogRecord**: Method-level annotation for automatic operation logging via AOP
-- **@Encrypt/@Decrypt**: Method or parameter annotations for automatic encryption/decryption
+The system uses **stateless JWT authentication** (NO sessions):
+
+1. **Login**: POST `/auth/login` with username/password
+   - Returns JWT token valid for 30 minutes
+   - Token stored in Redis (or Caffeine if Redis unavailable)
+   - Response format: `Bearer {token}`
+
+2. **Request Authentication**:
+   - All requests include `Authorization: Bearer {token}` header
+   - `JwtAuthenticationTokenFilter` intercepts before UsernamePasswordAuthenticationFilter
+   - Token validated via `BaseTokenService.verifyToken()`
+   - User loaded from cache and placed in SecurityContext
+
+3. **Token Configuration**: Located in `security.yml`
+   - Secret key: `my-super-secret-key-12345678901234`
+   - Expiration: 30 minutes
+   - Algorithm: HMAC256
+
+### File Management System
+
+**Upload Flow**:
+- POST `/files/upload` with MultipartFile (max 100MB)
+- MD5 hash calculated for deduplication
+- "Quick upload" (秒传) if file already exists
+- Otherwise uploads to Tencent Cloud COS
+- Metadata stored in database with user_id isolation
+
+**Key Operations**:
+- Download: `/files/{id}/download` - generates 1-hour time-limited COS URL
+- Rename: `/files/{id}/rename`
+- Move: `/files/{id}/move` - changes folder_id
+- Soft delete: `/files/{id}` - sets status=0
+- Permanent delete: `/files/{id}/permanent` - removes from DB and COS
+- Folder tree: `/files/folders/{id}/tree` - uses MySQL 8.0 WITH RECURSIVE CTE
+
+**File Hierarchy**:
+- Files support parent-child relationships via `folder_id`
+- Root files have `folder_id = 0`
+- Recursive operations use Common Table Expressions (CTE)
+
+### Database Access Patterns
+
+**MyBatis-Plus Configuration**:
+- XML mappers: `core/src/main/resources/mapper/*.xml`
+- Type aliases: `com.tancong.**.entity`
+- Camel case mapping enabled
+- Lazy loading enabled
+
+**Key Custom Queries** (FileMapper.xml):
+- `selectAllFilesRecursively`: WITH RECURSIVE CTE for folder traversal
+- `softDeleteFileAndChildren`: Recursive soft delete
+- `permanentDeleteFileAndChildren`: Recursive physical deletion
+- All queries filtered by `user_id` for user isolation
+
+**Database Tables**:
+- `user`: Stores BCrypt-hashed passwords, UUID identifiers
+- `role`: RBAC roles (ROLE_ADMIN, ROLE_GUEST)
+- `menu`: Tree structure with parent_menu_id self-reference
+- `user_role`, `role_menu`: Many-to-many relationships with CASCADE DELETE
+- `log`: Operation audit trail via @LogRecord AOP
+- `file`: File metadata with MD5 hash, COS path, folder hierarchy
 
 ### Caching Strategy
-The system uses an abstracted caching layer (`CacheManagers`) that automatically selects between:
-- Redis (primary, if configured)
-- Local Caffeine cache (fallback if Redis unavailable)
 
-Access cache via: `CacheManagers.set()`, `CacheManagers.get()`, `CacheManagers.del()`, etc.
+**Hybrid Cache Manager** (`CacheManagers.java`):
+- Automatically selects Redis (preferred) or Caffeine (fallback)
+- Used for JWT tokens and user session data
+- Graceful degradation when Redis unavailable
 
-### JWT Authentication Flow
-1. JWT tokens are created via `BaseTokenService.createToken()` with UUID, TokenType, and AuthUser
-2. Tokens stored in cache with expiration (configured in security.yml)
-3. Token validation happens in `BaseTokenService.verifyToken()`
-4. AuthUser retrieved from cache using UUID extracted from token
-5. Token header: `Authorization: Bearer <token>`
+### Cross-Cutting Concerns
 
-### Security & Encryption
-- Passwords encrypted with BCrypt (configured in SecurityConfig)
-- AES encryption/decryption available via `EncryptService` (key in security.yml)
-- Automatic request/response encryption using @Encrypt/@Decrypt annotations
-- Security settings in `secruity/src/main/resources/security.yml`
+**Logging and Auditing**:
+- `@LogRecord` annotation triggers AOP aspect
+- Captures operation details, execution time, client IP, user ID
+- Persists to `log` table via LoggerService
+- Automatic exception logging
 
-### Logging System
-- AOP-based logging via `LogAspect` for methods annotated with `@LogRecord`
-- Logs captured: operation title, module, IP, user ID, method signature, parameters, results, errors, execution time
-- Logs persisted via `LoggerService.insert()` (implemented by `DbLoggerServiceImpl`)
+**Exception Handling**:
+- Global `@RestControllerAdvice` handler
+- `CanShowException` for user-friendly error messages
+- Standardized response format: `RespBody<T>` with code/msg/data
 
-## Configuration Files
+**Security Handlers**:
+- `AuthenticationEntryPointImpl`: 401 responses (unauthenticated)
+- `AccessDeniedHandlerImpl`: 403 responses (unauthorized)
+- Custom JSON responses instead of HTML error pages
 
-### application.yml (core module)
-- Server port: 1227
-- MySQL connection details
-- Spring Boot configurations
+## Important Configuration Details
 
-### security.yml (secruity module)
-- JWT configuration: header name, token prefix, secret key, expiration (30 minutes)
-- AES encryption key
-- **Important**: Secret keys should be externalized to environment variables in production
+### Application Configuration (application.yml)
+- Server port: **1227**
+- Database: `jdbc:mysql://101.42.242.33:3306/cloud_db`
+- Redis: `101.42.242.33:6378`
+- Max file size: **100MB**
 
-## Database
-- MySQL connection string: `jdbc:mysql://101.42.242.33:3306/cloud_db`
-- MyBatis Plus handles entity mappings
-- Mappers: LogMapper, MenuMapper, RoleMapper, UserMapper
+### COS Configuration
+Environment variables required:
+- `COS_SECRET_ID`
+- `COS_SECRET_KEY`
+- `COS_REGION`
+- `COS_BUCKET_NAME`
 
-## Development Notes
+COS URLs expire after **3600 seconds** (1 hour)
 
-### Component Scanning
-The main application (`com.tancong.core.Application`) scans all packages under `com.tancong` via:
-### java
-@SpringBootApplication(scanBasePackages = "com.tancong")
+### Default User Accounts
+- Admin: username `admin`, password `admin123`, role ROLE_ADMIN
+- Guest: username `guest`, password `123456`, role ROLE_GUEST
+- Passwords hashed with BCrypt (rounds=10)
 
+## Key Design Patterns
 
-### Entity Base Class
-Most entities extend `BaseEntity` which likely contains common fields (id, create/update timestamps, etc.)
+1. **User Isolation**: All queries filtered by authenticated user's ID
+2. **Soft Deletes**: Status field instead of physical deletion (preserves audit trail)
+3. **File Deduplication**: MD5-based quick upload to avoid redundant storage
+4. **Recursive Queries**: MySQL 8.0 CTE for hierarchical folder structures
+5. **Stateless API**: No session storage, JWT in request headers
+6. **AOP-Based Auditing**: Declarative logging via annotations
+7. **Configuration-Driven**: Environment variables for sensitive credentials
 
-### Response Handling
-Use `RespBody<T>` for standardized API responses with `RespStatus` enum for status codes.
+## Module Dependencies
 
-### Exception Handling
-- `CanShowException`: Exceptions safe to display to users
-- `SQLOperateException`: Database operation exceptions
+When working with modules:
+- **common** and **secruity** are libraries (packaging: jar, repackage disabled)
+- **core** depends on both common and secruity
+- Only **core** produces executable JAR
+- Lombok annotation processor configured for all modules
 
-### Service Layer Pattern
-Services extend `BaseService` for common CRUD operations. Implementations in `service/impl/`.
+## Security Notes
 
-### YAML Configuration Loading
-Custom `YamlSourceFactory` used to load .yml files via `@PropertySource` annotation.
+- CSRF disabled (stateless API)
+- Session creation policy: STATELESS
+- Form login disabled (JWT only)
+- BCrypt for password hashing
+- AES encryption service available (key: `tancong629zyr218`)
+- Optional `@Decrypt` annotation for request body decryption
+
+## Common Development Tasks
+
+### Adding a new file operation endpoint
+1. Add method to `FileController` with appropriate mapping
+2. Implement business logic in `FileService/FileServiceImpl`
+3. Add custom SQL query to `FileMapper.xml` if needed (especially for recursive operations)
+4. Ensure user_id filtering for security
+5. Consider adding `@LogRecord` for audit trail
+
+### Modifying authentication/authorization
+1. Security config in `secruity/src/main/java/com/tancong/security/config/SecurityConfig.java`
+2. Token settings in `security.yml`
+3. JWT filter: `JwtAuthenticationTokenFilter`
+4. Token service: `BaseTokenService`
+
+### Database schema changes
+1. Create/modify SQL scripts in `sql/` directory
+2. Update corresponding entity in `core/src/main/java/com/tancong/core/entity/`
+3. Update mapper XML if custom queries needed
+4. Consider migration impact on existing data
+
+### Working with file types and statuses
+Use enums located in `core/src/main/java/com/tancong/core/entity/enums/`:
+- `FileTypeEnum`: FILE (1), FOLDER (2)
+- File status: DELETED (0), NORMAL (1), PENDING (2)
+
+## Notes on Code Quality
+
+- The module name "secruity" is intentionally misspelled throughout the codebase
+- Do not rename it without updating all Maven dependencies
+- All user-facing error messages should use `CanShowException` for consistency
+- Always include user_id in queries to maintain multi-tenant data isolation

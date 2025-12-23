@@ -3,6 +3,7 @@ package com.tancong.core.service;
 import com.tancong.core.entity.File;
 import com.tancong.core.entity.vo.FileUploadResponse;
 import com.tancong.core.entity.vo.FileVO;
+import com.tancong.core.entity.vo.Pager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -66,14 +67,19 @@ public interface FileService extends BaseService<File> {
     boolean permanentDeleteFile(Long fileId, Long userId);
 
     /**
-     * 获取用户文件列表（支持分页）
-     *
-     * @param userId 用户ID
-     * @param folderId 文件夹ID
-     * @return 文件列表
+     * 获取用户文件列表（不分页，用于树形结构）
      */
     List<FileVO> getUserFiles(Long userId, Long folderId);
 
+    /**
+     * 【新增】获取用户文件列表（分页）
+     */
+    Pager<FileVO> getUserFilesWithPage(Long userId, Long folderId, Pager<FileVO> pager);
+
+    /**
+     * 【新增】递归获取指定根文件夹下的完整文件树结构
+     */
+    List<FileVO> getFileTree(Long rootFolderId, Long userId);
     /**
      * 获取文件详情
      *
@@ -82,4 +88,28 @@ public interface FileService extends BaseService<File> {
      * @return 文件VO
      */
     FileVO getFileDetail(Long fileId, Long userId);
+
+    // Service 接口改为返回 FileVO
+    FileVO createFolder(String folderName, Long userId, Long parentFolderId);
+
+    /**
+     * 新增重命名文件
+     * @param fileId
+     * @param userId
+     * @param newName
+     * @return
+     */
+    boolean renameFile(Long fileId, Long userId, String newName);
+
+    /**
+     * 新增移动文件的方法
+     * @param fileId
+     * @param userId
+     * @param targetFolderId
+     * @return
+     */
+    boolean moveFile(Long fileId, Long userId, Long targetFolderId);
+
+
+    boolean batchDeleteFiles(List<Long> fileIds, Long id);
 }

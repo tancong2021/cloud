@@ -43,7 +43,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     // ===== 常量定义 =====
     private static final Long SUPER_ADMIN_ID = 1L;
-    private static final String ADMIN_ROLE = "ROLE_admin";
+    private static final String ADMIN_ROLE = "ROLE_ADMIN";
 
     @Autowired
     private UserService userService;

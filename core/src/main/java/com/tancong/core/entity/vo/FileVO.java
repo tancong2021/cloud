@@ -6,6 +6,7 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * ===================================
@@ -45,4 +46,10 @@ public class FileVO extends File implements Serializable {
      * 上传者用户名
      */
     private String uploaderName;
+
+    /**
+     * 子文件和子文件夹列表
+     */
+    private List<FileVO> children;
+
 }
