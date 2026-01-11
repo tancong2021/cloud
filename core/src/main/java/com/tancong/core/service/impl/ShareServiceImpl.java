@@ -60,6 +60,9 @@ public class ShareServiceImpl extends ServiceImpl<ShareMapper, Share> implements
     @Autowired
     private CosService cosService;
 
+    @Autowired
+    private com.tancong.core.mapper.FileMapper fileMapper;
+
     /**
      * 创建文件分享
      */
@@ -326,7 +329,11 @@ public class ShareServiceImpl extends ServiceImpl<ShareMapper, Share> implements
             if (!sharedFile.getType().equals(FileTypeEnum.FOLDER.getValue())) {
                 throw new CanShowException("该分享不支持指定文件下载");
             }
-            // TODO: 验证fileId是否在文件夹树中
+            // 验证fileId是否在文件夹树中
+            Boolean isInTree = fileMapper.isFileInFolderTree(share.getFileId(), fileId, sharedFile.getUserId());
+            if (isInTree == null || !isInTree) {
+                throw new CanShowException("文件不在分享范围内");
+            }
         }
 
         // 增加下载次数

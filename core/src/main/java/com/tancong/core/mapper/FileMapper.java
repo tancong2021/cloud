@@ -103,4 +103,17 @@ public interface FileMapper extends BaseMapper<File> {
     @Update("UPDATE file SET folder_id = #{targetFolderId}, update_time = #{updateTime} " +
             "WHERE id = #{fileId} AND user_id = #{userId}")
     Integer updateFolderId(@Param("fileId") Long fileId, @Param("userId") Long userId, @Param("targetFolderId")  Long targetFolderId, @Param("updateTime") LocalDateTime updateTime);
+
+    /**
+     * 验证指定文件是否在某个文件夹的子树中
+     * @param rootFolderId 根文件夹ID
+     * @param targetFileId 目标文件ID
+     * @param userId 用户ID
+     * @return true表示文件在文件夹树中，false表示不在
+     */
+    Boolean isFileInFolderTree(
+            @Param("rootFolderId") Long rootFolderId,
+            @Param("targetFileId") Long targetFileId,
+            @Param("userId") Long userId
+    );
 }
