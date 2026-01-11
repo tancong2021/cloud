@@ -86,4 +86,30 @@
         WHERE id IN (SELECT id FROM delete_tree)
     </delete>
 
+    <!-- 验证指定文件是否在某个文件夹的子树中 -->
+    <select id="isFileInFolderTree" resultType="java.lang.Boolean">
+        WITH RECURSIVE folder_tree AS (
+            -- 起点：从指定的根文件夹开始
+            SELECT id
+            FROM `file`
+            WHERE id = #{rootFolderId}
+              AND user_id = #{userId}
+              AND status = 1
+
+            UNION ALL
+
+            -- 递归：查找所有子文件和子文件夹
+            SELECT f.id
+            FROM `file` f
+                     INNER JOIN folder_tree ft ON f.folder_id = ft.id
+            WHERE f.user_id = #{userId}
+              AND f.status = 1
+        )
+        SELECT EXISTS(
+            SELECT 1
+            FROM folder_tree
+            WHERE id = #{targetFileId}
+        )
+    </select>
+
 </mapper>
