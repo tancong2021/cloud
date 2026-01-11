@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tancong.core.mapper.ShareMapper">
+
+    <!-- 关联查询分享和文件信息 -->
+    <select id="selectSharesWithFileByUserId" resultType="com.tancong.core.entity.Share">
+        SELECT
+            s.*,
+            f.file_name,
+            f.file_size,
+            f.type as file_type
+        FROM share s
+        INNER JOIN file f ON s.file_id = f.id
+        WHERE s.user_id = #{userId}
+          AND s.status != 0
+        ORDER BY s.create_time DESC
+    </select>
+
+</mapper>

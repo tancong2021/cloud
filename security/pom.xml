@@ -8,7 +8,7 @@
     </parent>
 
     <groupId>com.tancong</groupId>
-    <artifactId>secruity</artifactId>
+    <artifactId>security</artifactId>
     <packaging>jar</packaging>
     <name>secruity</name>
 

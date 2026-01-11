@@ -86,8 +86,12 @@ public class SecurityConfig {
                         // OPTIONS 预检请求（CORS）
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 公开接口（根据你的实际路径调整）
+                        // 公开接口
                         .requestMatchers("/auth/login","/auth/logout").permitAll()      // 登录
+
+                        // 公共分享访问端点（无需JWT认证）
+                        .requestMatchers("/public/shares/**").permitAll()
+
                         .anyRequest().authenticated()
                 );
 
